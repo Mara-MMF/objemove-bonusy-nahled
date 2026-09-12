@@ -1,0 +1,26 @@
+name: Sync production data to Firestore
+
+on:
+  schedule:
+    # Every 30 minutes. GitHub Actions is free/unlimited-minutes on public repos,
+    # so this costs nothing regardless of how often it runs.
+    - cron: '*/30 * * * *'
+  workflow_dispatch: {}
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: pip install requests openpyxl firebase-admin
+
+      - name: Sync sheet -> Firestore
+        env:
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+        run: python3 sync_production_to_firestore.py
