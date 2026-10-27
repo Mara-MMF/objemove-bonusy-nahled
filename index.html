@@ -2422,6 +2422,7 @@ async function loadData(year, fromOverview, target, holdUntil){
     state.fetchedAt = Date.now();
     saveCacheToStorage();
     if (holdUntil) await holdUntil; // let the splash animation finish before switching screens
+    if (statusEl){ statusEl.className = "status"; statusEl.textContent = ""; }
     state.screen = target || "overview";
     render();
   }catch(err){
@@ -2435,6 +2436,8 @@ async function loadData(year, fromOverview, target, holdUntil){
     }
   }finally{
     state.loading = false;
+    // The clicked splash tile only stays lit while its data loads.
+    document.querySelectorAll(".year-card.flash").forEach(el => el.classList.remove("flash"));
   }
 }
 
