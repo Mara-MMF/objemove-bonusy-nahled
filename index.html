@@ -158,6 +158,16 @@
   .year-card:hover::before{opacity:.9;}
   html.dark .year-card:hover::before{opacity:.6;}
   .year-card:hover::after{transform:translateX(120%);}
+  /* Click = the tile flickers on like the logo (clicked tile first, its neighbour a beat later). */
+  .year-card.flash{
+    animation:tile-flicker .75s steps(1,end) 1;
+    border-color:var(--s3-brand);
+    box-shadow:0 0 0 1px var(--s3-brand), 0 0 34px 6px color-mix(in srgb, var(--s3-brand) 55%, transparent), 0 16px 36px rgba(0,0,0,.2);
+  }
+  .year-card.flash::before{opacity:1;}
+  .year-card.flash::after{transform:translateX(120%);}
+  @keyframes tile-flicker{0%{opacity:.4} 10%{opacity:1} 20%{opacity:.55} 32%{opacity:1} 44%{opacity:.7} 58%,100%{opacity:1}}
+  @media (prefers-reduced-motion:reduce){ .year-card.flash{animation:none;} }
   .year-card .year-icon{color:var(--s3-brand);}
   .year-card .year-label{font-size:13px; font-weight:600; color:var(--s3-text-secondary);}
   .year-card .year-value{font-size:28px; font-weight:700; color:var(--s3-text-primary);}
@@ -2393,7 +2403,7 @@ function initTheme(){
 }
 
 /* ======================= DATA LOADING ======================= */
-async function loadData(year, fromOverview, target){
+async function loadData(year, fromOverview, target, holdUntil){
   const targetYear = year || state.selectedYear;
   const statusEl = document.getElementById("splash-status");
   state.loading = true; state.error = null;
@@ -2411,6 +2421,7 @@ async function loadData(year, fromOverview, target){
     state.selectedYear = targetYear;
     state.fetchedAt = Date.now();
     saveCacheToStorage();
+    if (holdUntil) await holdUntil; // let the splash animation finish before switching screens
     state.screen = target || "overview";
     render();
   }catch(err){
@@ -2467,7 +2478,13 @@ function renderSplashPicker(){
   picker.querySelectorAll(".year-card").forEach(btn => {
     btn.addEventListener("click", () => {
       const year = parseInt(btn.getAttribute("data-year"), 10);
-      loadData(year, false, state.splashMode === "produkce" ? "production" : "overview");
+      const reduced = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      if (!reduced){
+        const flash = el => { el.classList.remove("flash"); void el.offsetWidth; el.classList.add("flash"); };
+        flash(btn);
+        picker.querySelectorAll(".year-card").forEach(other => { if (other !== btn) setTimeout(() => flash(other), 140); });
+      }
+      loadData(year, false, state.splashMode === "produkce" ? "production" : "overview", reduced ? null : new Promise(r => setTimeout(r, 900)));
     });
   });
 }
