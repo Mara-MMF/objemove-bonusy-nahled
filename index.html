@@ -310,6 +310,17 @@
   /* Cards on the production screen carry a stripe in the segment's color. */
   .prod-themed .chart-card{border-top:3px solid hsl(var(--h) var(--seg-s) var(--seg-l));}
   .title-dot{display:inline-block; width:10px; height:10px; border-radius:50%; margin-right:8px; background:hsl(var(--h) 65% 62%); box-shadow:0 0 0 2px rgba(255,255,255,.7);}
+  /* Year switch (topbar, both sections): same pill language as .nav-switch, with a small "Rok" label. */
+  .year-switch{display:inline-flex; align-items:center; gap:3px; padding:3px 3px 3px 12px; border-radius:999px; background:rgba(255,255,255,.12); border:1px solid rgba(255,255,255,.3);}
+  .year-switch-label{font-size:11px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--s3-header-text); opacity:.75; margin-right:4px;}
+  .year-switch button{
+    border:0; border-radius:999px; padding:7px 14px; cursor:pointer; font:inherit; font-size:13px; font-weight:700;
+    font-variant-numeric:tabular-nums; background:transparent; color:var(--s3-header-text); opacity:.85;
+  }
+  .year-switch button:hover{background:rgba(255,255,255,.18); opacity:1;}
+  .year-switch button.active{background:#fff; color:var(--s3-brand); opacity:1; cursor:default;}
+  .year-switch.busy{opacity:.6; pointer-events:none;}
+  .year-switch.busy::after{content:""; width:12px; height:12px; margin:0 8px 0 4px; border-radius:50%; border:2px solid rgba(255,255,255,.4); border-top-color:#fff; animation:spin .7s linear infinite;}
   .nav-switch{display:inline-flex; gap:3px; padding:3px; border-radius:999px; background:rgba(255,255,255,.12); border:1px solid rgba(255,255,255,.3);}
   .nav-switch button{
     display:inline-flex; align-items:center; gap:6px; border:0; border-radius:999px; padding:7px 14px; cursor:pointer;
@@ -1414,19 +1425,32 @@ function renderNavSwitch(active){
   '</div>';
 }
 
+// Year switch, identical in both sections: switching reloads the data for that year and stays
+// in the current section (production keeps its division/segment).
+function renderYearSwitch(){
+  return '<div class="year-switch" role="tablist" aria-label="Rok">' +
+    '<span class="year-switch-label">Rok</span>' +
+    AVAILABLE_YEARS.map(y =>
+      '<button role="tab" data-year="' + y + '" aria-selected="' + (y === state.selectedYear) + '"' +
+        (y === state.selectedYear ? ' class="active"' : '') + '>' + y + '</button>'
+    ).join("") +
+  '</div>';
+}
+
 function renderTopbar(){
   const topbar = document.getElementById("topbar");
   if (state.screen === "overview"){
     topbar.innerHTML =
       '<div class="left">' +
+        '<button class="backlink" id="btn-home" title="Zpět na úvodní obrazovku">' + icon("back") + ' Úvod</button>' +
         '<div>' +
           '<div class="title">Objemové bonusy ' + state.selectedYear + (READONLY ? ' <span class="readonly-badge">pouze náhled</span>' : '') + '</div>' +
           '<div class="meta">Data aktualizována: ' + formatDateTime(state.fetchedAt) + '</div>' +
         '</div>' +
       '</div>' +
       '<div class="actions">' +
-        '<button class="btn btn-ghost-on-brand" id="btn-switch-year">Přepnout rok</button>' +
         renderNavSwitch("bonusy") +
+        renderYearSwitch() +
         (READONLY ? '' :
           '<button class="icon-btn" id="btn-export-backup" title="Stáhnout zálohu bonusů (JSON)">' + icon("download") + '</button>' +
           '<button class="icon-btn" id="btn-import-backup" title="Načíst zálohu bonusů ze souboru">' + icon("upload") + '</button>' +
@@ -1448,10 +1472,11 @@ function renderTopbar(){
   } else if (state.screen === "production"){
     topbar.innerHTML =
       '<div class="left">' +
-        '<button class="backlink" id="btn-back-overview">' + icon("back") + ' Změnit rok</button>' +
+        '<button class="backlink" id="btn-home" title="Zpět na úvodní obrazovku">' + icon("back") + ' Úvod</button>' +
       '</div>' +
       '<div class="actions">' +
         renderNavSwitch("produkce") +
+        renderYearSwitch() +
         '<div class="title" style="font-size:15px;"><span class="title-dot" style="--h:' + currentDivision().hue + '"></span>Přehled produkce ' + state.selectedYear + ' · ' + escapeHtml(currentDivision().label) + '</div>' +
         '<button class="icon-btn" id="btn-theme" title="Přepnout motiv"></button>' +
       '</div>';
@@ -2137,9 +2162,18 @@ function attachHandlers(){
   const themeBtn = document.getElementById("btn-theme");
   if (themeBtn) themeBtn.onclick = toggleTheme;
 
+  const homeBtn = document.getElementById("btn-home");
+  if (homeBtn) homeBtn.onclick = () => { state.screen = "splash"; render(); };
+  document.querySelectorAll(".year-switch button[data-year]").forEach(btn => {
+    btn.onclick = () => {
+      const year = parseInt(btn.getAttribute("data-year"), 10);
+      if (year === state.selectedYear || state.loading) return;
+      document.querySelectorAll(".year-switch").forEach(el => el.classList.add("busy"));
+      loadData(year, true, state.screen);
+    };
+  });
+
   if (state.screen === "overview"){
-    const switchYearBtn = document.getElementById("btn-switch-year");
-    if (switchYearBtn) switchYearBtn.onclick = () => { state.screen = "splash"; render(); };
     const prodBtn = document.getElementById("btn-production-overview");
     if (prodBtn) prodBtn.onclick = () => { state.screen = "production"; render(); };
     const refreshBtn = document.getElementById("btn-refresh");
@@ -2176,8 +2210,6 @@ function attachHandlers(){
   }
 
   if (state.screen === "production"){
-    const backBtn = document.getElementById("btn-back-overview");
-    if (backBtn) backBtn.onclick = () => { state.screen = "splash"; render(); };
     const bonusesBtn = document.getElementById("btn-bonuses-overview");
     if (bonusesBtn) bonusesBtn.onclick = () => { state.screen = "overview"; render(); };
     const divBar = document.getElementById("div-bar");
@@ -2438,6 +2470,7 @@ async function loadData(year, fromOverview, target, holdUntil){
     state.loading = false;
     // The clicked splash tile only stays lit while its data loads.
     document.querySelectorAll(".year-card.flash").forEach(el => el.classList.remove("flash"));
+    document.querySelectorAll(".year-switch.busy").forEach(el => el.classList.remove("busy"));
   }
 }
 
