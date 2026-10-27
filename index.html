@@ -107,6 +107,20 @@
   .year-card .year-icon{color:var(--s3-brand);}
   .year-card .year-label{font-size:13px; font-weight:600; color:var(--s3-text-secondary);}
   .year-card .year-value{font-size:28px; font-weight:700; color:var(--s3-text-primary);}
+  .splash-label{font-size:13px; font-weight:600; color:var(--s3-text-secondary); letter-spacing:.02em;}
+  .splash-section{display:flex; flex-direction:column; align-items:center; gap:12px;}
+  .mode-switch{
+    display:inline-flex; gap:4px; padding:4px; border-radius:999px;
+    background:var(--s3-surface-muted); border:1px solid var(--s3-border-default);
+  }
+  .mode-switch button{
+    display:inline-flex; align-items:center; gap:8px; padding:9px 20px; border:0; border-radius:999px;
+    background:transparent; color:var(--s3-text-secondary); font:inherit; font-size:14px; font-weight:600; cursor:pointer;
+    transition:background .15s, color .15s, box-shadow .15s;
+  }
+  .mode-switch button:hover{color:var(--s3-text-primary);}
+  .mode-switch button.active{background:var(--s3-brand); color:#fff; box-shadow:0 2px 8px rgba(0,0,0,.15); cursor:default;}
+  .mode-switch button:focus-visible{outline:2px solid var(--s3-brand); outline-offset:2px;}
   .year-card:disabled, .year-card.disabled{opacity:.5; cursor:not-allowed; transform:none;}
   .spinner{
     width:18px;height:18px;border-radius:50%;
@@ -473,8 +487,14 @@
 
   <div id="splash">
     <img src="assets/logo-mmf.png" alt="M&amp;M Finance">
-    <div class="hint">Vyberte rok, pro který chcete načíst objemové bonusy</div>
-    <div class="year-picker" id="year-picker"></div>
+    <div class="splash-section">
+      <div class="splash-label">Co chcete zobrazit?</div>
+      <div class="mode-switch" id="mode-switch" role="tablist" aria-label="Co chcete zobrazit"></div>
+    </div>
+    <div class="splash-section">
+      <div class="splash-label">Vyberte rok</div>
+      <div class="year-picker" id="year-picker"></div>
+    </div>
     <div class="status" id="splash-status"></div>
   </div>
 
@@ -627,6 +647,13 @@ function getProducerLogo(producerName){
 const STORAGE_BONUSES = "objemove_bonusy_bonuses_v1";
 const STORAGE_CACHE = "objemove_bonusy_cache_v1";
 const STORAGE_THEME = "objemove_bonusy_theme";
+const STORAGE_SPLASH_MODE = "objemove_bonusy_splash_mode";
+
+// What the splash screen opens next: the bonuses overview or the production overview.
+const SPLASH_MODES = [
+  { key: "bonusy", label: "Objemové bonusy", icon: "chart" },
+  { key: "produkce", label: "Přehled produkce", icon: "trend" },
+];
 
 /* ======================= DEFAULT / SEED BONUSES ======================= */
 function seedBonuses(){
@@ -874,6 +901,8 @@ function icon(name, size){
 
 /* ======================= STATE ======================= */
 const state = {
+  splashMode: "bonusy",   // bonusy | produkce — what the splash year cards open
+  productionFrom: "overview", // where "Zpět" on the production screen leads: splash | overview
   screen: "splash",       // splash | overview | detail
   loading: false,
   error: null,
@@ -1300,7 +1329,7 @@ function renderTopbar(){
   } else if (state.screen === "production"){
     topbar.innerHTML =
       '<div class="left">' +
-        '<button class="backlink" id="btn-back-overview">' + icon("back") + ' Zpět na přehled bonusů</button>' +
+        '<button class="backlink" id="btn-back-overview">' + icon("back") + ' ' + (state.productionFrom === "splash" ? 'Zpět na úvod' : 'Zpět na přehled bonusů') + '</button>' +
       '</div>' +
       '<div class="actions">' +
         '<div class="title" style="font-size:15px;">Přehled produkce ' + state.selectedYear + ' · ' + escapeHtml(currentDivision().label) + '</div>' +
@@ -1978,7 +2007,7 @@ function attachHandlers(){
     const switchYearBtn = document.getElementById("btn-switch-year");
     if (switchYearBtn) switchYearBtn.onclick = () => { state.screen = "splash"; render(); };
     const prodBtn = document.getElementById("btn-production-overview");
-    if (prodBtn) prodBtn.onclick = () => { state.screen = "production"; render(); };
+    if (prodBtn) prodBtn.onclick = () => { state.productionFrom = "overview"; state.screen = "production"; render(); };
     const refreshBtn = document.getElementById("btn-refresh");
     if (refreshBtn) refreshBtn.onclick = () => loadData(state.selectedYear, true);
     const exportBtn = document.getElementById("btn-export-backup");
@@ -2014,7 +2043,7 @@ function attachHandlers(){
 
   if (state.screen === "production"){
     const backBtn = document.getElementById("btn-back-overview");
-    if (backBtn) backBtn.onclick = () => { state.screen = "overview"; render(); };
+    if (backBtn) backBtn.onclick = () => { state.screen = state.productionFrom === "splash" ? "splash" : "overview"; render(); };
     const divBar = document.getElementById("div-bar");
     if (divBar){
       divBar.querySelectorAll("button").forEach(btn => {
@@ -2238,7 +2267,7 @@ function initTheme(){
 }
 
 /* ======================= DATA LOADING ======================= */
-async function loadData(year, fromOverview){
+async function loadData(year, fromOverview, target){
   const targetYear = year || state.selectedYear;
   const statusEl = document.getElementById("splash-status");
   state.loading = true; state.error = null;
@@ -2256,7 +2285,7 @@ async function loadData(year, fromOverview){
     state.selectedYear = targetYear;
     state.fetchedAt = Date.now();
     saveCacheToStorage();
-    state.screen = "overview";
+    state.screen = target || "overview";
     render();
   }catch(err){
     console.error(err);
@@ -2270,6 +2299,39 @@ async function loadData(year, fromOverview){
   }finally{
     state.loading = false;
   }
+}
+
+/* ======================= SPLASH PICKER ======================= */
+function renderSplashPicker(){
+  const mode = SPLASH_MODES.find(m => m.key === state.splashMode) || SPLASH_MODES[0];
+  const sw = document.getElementById("mode-switch");
+  sw.innerHTML = SPLASH_MODES.map(m =>
+    '<button role="tab" data-mode="' + m.key + '" aria-selected="' + (m.key === mode.key) + '"' +
+      (m.key === mode.key ? ' class="active"' : '') + '>' + icon(m.icon, 18) + '<span>' + m.label + '</span></button>'
+  ).join("");
+  sw.querySelectorAll("button").forEach(btn => {
+    btn.addEventListener("click", () => {
+      state.splashMode = btn.getAttribute("data-mode");
+      try{ localStorage.setItem(STORAGE_SPLASH_MODE, state.splashMode); }catch(e){}
+      renderSplashPicker();
+    });
+  });
+
+  const picker = document.getElementById("year-picker");
+  picker.innerHTML = AVAILABLE_YEARS.map(y =>
+    '<button class="year-card" data-year="' + y + '">' +
+      '<span class="year-icon">' + icon(mode.icon, 32) + '</span>' +
+      '<span class="year-label">' + mode.label + '</span>' +
+      '<span class="year-value">' + y + '</span>' +
+    '</button>'
+  ).join("");
+  picker.querySelectorAll(".year-card").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const year = parseInt(btn.getAttribute("data-year"), 10);
+      if (state.splashMode === "produkce") state.productionFrom = "splash";
+      loadData(year, false, state.splashMode === "produkce" ? "production" : "overview");
+    });
+  });
 }
 
 /* ======================= INIT ======================= */
@@ -2340,17 +2402,11 @@ function init(){
     state.selectedYear = cache.year || null;
   }
 
-  const picker = document.getElementById("year-picker");
-  picker.innerHTML = AVAILABLE_YEARS.map(y =>
-    '<button class="year-card" data-year="' + y + '">' +
-      '<span class="year-icon">' + icon("chart", 32) + '</span>' +
-      '<span class="year-label">Objemové bonusy</span>' +
-      '<span class="year-value">' + y + '</span>' +
-    '</button>'
-  ).join("");
-  picker.querySelectorAll(".year-card").forEach(btn => {
-    btn.addEventListener("click", () => loadData(parseInt(btn.getAttribute("data-year"), 10), false));
-  });
+  try{
+    const savedMode = localStorage.getItem(STORAGE_SPLASH_MODE);
+    if (SPLASH_MODES.some(m => m.key === savedMode)) state.splashMode = savedMode;
+  }catch(e){}
+  renderSplashPicker();
 
   render();
 }
