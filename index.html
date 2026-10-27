@@ -158,7 +158,7 @@
   .year-card:hover::before{opacity:.9;}
   html.dark .year-card:hover::before{opacity:.6;}
   .year-card:hover::after{transform:translateX(120%);}
-  /* Click = the tile flickers on like the logo (clicked tile first, its neighbour a beat later). */
+  /* Click = the clicked tile (and only that one) flickers on like the logo. */
   .year-card.flash{
     animation:tile-flicker .75s steps(1,end) 1;
     border-color:var(--s3-brand);
@@ -2480,9 +2480,7 @@ function renderSplashPicker(){
       const year = parseInt(btn.getAttribute("data-year"), 10);
       const reduced = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
       if (!reduced){
-        const flash = el => { el.classList.remove("flash"); void el.offsetWidth; el.classList.add("flash"); };
-        flash(btn);
-        picker.querySelectorAll(".year-card").forEach(other => { if (other !== btn) setTimeout(() => flash(other), 140); });
+        btn.classList.remove("flash"); void btn.offsetWidth; btn.classList.add("flash"); // only the clicked tile
       }
       loadData(year, false, state.splashMode === "produkce" ? "production" : "overview", reduced ? null : new Promise(r => setTimeout(r, 900)));
     });
