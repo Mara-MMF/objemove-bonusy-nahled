@@ -262,6 +262,36 @@
     display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:14px; margin-bottom:24px;
   }
   .prod-controls .segmented{flex-wrap:wrap;}
+  /* Segment colors: --h = hue of the segment; lightness/saturation follow the theme. */
+  :root{--seg-s:55%; --seg-l:34%; --seg-bg-l:94%; --seg-bd-l:80%;}
+  html.dark{--seg-s:50%; --seg-l:56%; --seg-bg-l:19%; --seg-bd-l:32%;}
+  .seg-stack{display:flex; flex-direction:column; gap:10px; min-width:0;}
+  .seg-tabs{display:flex; flex-wrap:wrap; gap:8px;}
+  .seg-tab{
+    --c:hsl(var(--h) var(--seg-s) var(--seg-l));
+    font:inherit; font-size:13px; font-weight:600; cursor:pointer; padding:8px 14px; border-radius:9px;
+    color:var(--c); background:hsl(var(--h) 45% var(--seg-bg-l));
+    border:1px solid hsl(var(--h) 40% var(--seg-bd-l)); border-left:5px solid var(--c);
+    transition:background .15s, color .15s, box-shadow .15s;
+  }
+  .seg-tab:hover{background:hsl(var(--h) 50% calc(var(--seg-bg-l) - 4%));}
+  .seg-tab.active{background:var(--c); color:#fff; border-color:var(--c); cursor:default; box-shadow:0 2px 8px hsl(var(--h) 50% 30% / .3);}
+  .seg-tab.parent-active{box-shadow:inset 0 0 0 2px var(--c);}
+  .seg-sub{
+    margin-left:14px; padding:2px 0 2px 14px; border-left:3px solid hsl(var(--h) var(--seg-s) var(--seg-l));
+    display:flex; flex-direction:column; gap:6px;
+  }
+  .seg-sub-label{font-size:11px; font-weight:700; letter-spacing:.04em; text-transform:uppercase; color:var(--s3-text-muted);}
+  /* Cards on the production screen carry a stripe in the segment's color. */
+  .prod-themed .chart-card{border-top:3px solid hsl(var(--h) var(--seg-s) var(--seg-l));}
+  .title-dot{display:inline-block; width:10px; height:10px; border-radius:50%; margin-right:8px; background:hsl(var(--h) 65% 62%); box-shadow:0 0 0 2px rgba(255,255,255,.7);}
+  .nav-switch{display:inline-flex; gap:3px; padding:3px; border-radius:999px; background:rgba(255,255,255,.12); border:1px solid rgba(255,255,255,.3);}
+  .nav-switch button{
+    display:inline-flex; align-items:center; gap:6px; border:0; border-radius:999px; padding:7px 14px; cursor:pointer;
+    font:inherit; font-size:13px; font-weight:600; background:transparent; color:var(--s3-header-text); opacity:.85;
+  }
+  .nav-switch button:hover{background:rgba(255,255,255,.18); opacity:1;}
+  .nav-switch button.active{background:#fff; color:var(--s3-brand); opacity:1; cursor:default;}
   .panel-title{font-size:14px; font-weight:700; color:var(--s3-text-primary); margin:0 0 16px;}
   .prod-note{font-size:12px; color:var(--s3-text-muted); margin:-12px 0 20px; max-width:900px;}
 
@@ -283,7 +313,9 @@
     font:inherit; font-size:14px; font-weight:600; cursor:pointer; text-align:left;
   }
   .div-bar button:hover{background:var(--s3-surface-brand);}
-  .div-bar button.active{background:var(--s3-brand); color:#fff; cursor:default;}
+  .div-bar button{--c:hsl(var(--h) var(--seg-s) var(--seg-l)); color:var(--c);}
+  .div-bar button:hover{background:hsl(var(--h) 45% var(--seg-bg-l));}
+  .div-bar button.active{background:var(--c); color:#fff; cursor:default;}
   .div-bar button svg{flex-shrink:0;}
   @media (min-width:1400px){
     .div-bar{
@@ -614,18 +646,34 @@ const DIVISIONS_EXPORT_URL = "https://docs.google.com/spreadsheets/d/" + DIVISIO
 // Divisions selectable on the "Přehled produkce" screen's floating bar. `segments` are the
 // segment keys offered in that division (keys into state.volumes / state.volumesKs).
 const DIVISIONS = [
-  { key: "uvery", label: "Úvěry", icon: "loans", dealLabel: "Ø výše úvěru",
+  { key: "uvery", label: "Úvěry", hue: 152, icon: "loans", dealLabel: "Ø výše úvěru",
     segments: SEGMENTS.map(s => s.key), note: "" },
-  { key: "pojisteni", label: "Pojištění", icon: "shield", dealLabel: "Ø pojistné na smlouvu",
+  { key: "pojisteni", label: "Pojištění", hue: 212, icon: "shield", dealLabel: "Ø pojistné na smlouvu",
     segments: ["Životní pojištění", "Neživotní pojištění", "Neživotní – Auta", "Neživotní – Majetek a odpovědnost",
                "Neživotní – Pojištění podnikatelů", "Neživotní – Cestovní pojištění"],
+    // Sub-segments are shown as a second tab row under their parent.
+    children: { "Neživotní pojištění": ["Neživotní – Auta", "Neživotní – Majetek a odpovědnost",
+                                        "Neživotní – Pojištění podnikatelů", "Neživotní – Cestovní pojištění"] },
     note: "Pojistné: jednorázové, pokud je zadáno, jinak roční. Segment „Neživotní pojištění“ zahrnuje všechny čtyři neživotní podsegmenty." },
-  { key: "investice", label: "Investice", icon: "trend", dealLabel: "Ø výše investice na smlouvu",
+  { key: "investice", label: "Investice", hue: 34, icon: "trend", dealLabel: "Ø výše investice na smlouvu",
     segments: ["Pravidelná investice", "Jednorázový vklad", "Investice celkem"],
     note: "Pravidelná investice = roční platba, jednorázový vklad = jednorázová platba; sledovány samostatně." },
-  { key: "penze", label: "Penze", icon: "hourglass", dealLabel: "Ø platba na smlouvu",
+  { key: "penze", label: "Penze", hue: 275, icon: "hourglass", dealLabel: "Ø platba na smlouvu",
     segments: ["Penze"], note: "Roční platba; pokud je nulová/prázdná, pak jednorázová." },
 ];
+// Tab color per segment: one hue family per division, a distinct hue step per segment/sub-segment
+// (HSL hue; saturation/lightness come from the theme tokens --seg-* so it works in dark mode too).
+const SEGMENT_HUES = {
+  "Nezajištěné úvěry": 120, "Zajištěné úvěry": 138, "Hypotéky": 156, "Spotřebitelské úvěry": 172, "Úvěry pro podnikatele": 188,
+  "Životní pojištění": 240, "Neživotní pojištění": 204,
+  "Neživotní – Auta": 186, "Neživotní – Majetek a odpovědnost": 198, "Neživotní – Pojištění podnikatelů": 212, "Neživotní – Cestovní pojištění": 224,
+  "Pravidelná investice": 40, "Jednorázový vklad": 18, "Investice celkem": 29,
+  "Penze": 275,
+};
+function segmentHue(key){
+  if (key in SEGMENT_HUES) return SEGMENT_HUES[key];
+  return currentDivision().hue;
+}
 const SEGMENT_NOTES = {
   "Investice celkem": "Součet pravidelné investice (roční platba) a jednorázového vkladu; počet ks = skutečný počet unikátních smluv (každá smlouva jen jednou, i když má oba typy vkladu).",
 };
@@ -941,7 +989,6 @@ function icon(name, size){
 /* ======================= STATE ======================= */
 const state = {
   splashMode: "bonusy",   // bonusy | produkce — what the splash year cards open
-  productionFrom: "overview", // where "Zpět" on the production screen leads: splash | overview
   screen: "splash",       // splash | overview | detail
   loading: false,
   error: null,
@@ -1334,6 +1381,14 @@ function activePeriodOf(result){
 }
 
 /* ======================= RENDER: SHELL ======================= */
+// Always-visible switch between the two main sections, in the topbar of both.
+function renderNavSwitch(active){
+  return '<div class="nav-switch" role="tablist" aria-label="Sekce">' +
+    '<button id="btn-bonuses-overview" role="tab" aria-selected="' + (active === "bonusy") + '"' + (active === "bonusy" ? ' class="active"' : '') + '>' + icon("chart", 16) + ' Objemové bonusy</button>' +
+    '<button id="btn-production-overview" role="tab" aria-selected="' + (active === "produkce") + '"' + (active === "produkce" ? ' class="active"' : '') + '>' + icon("trend", 16) + ' Přehled produkce</button>' +
+  '</div>';
+}
+
 function renderTopbar(){
   const topbar = document.getElementById("topbar");
   if (state.screen === "overview"){
@@ -1346,7 +1401,7 @@ function renderTopbar(){
       '</div>' +
       '<div class="actions">' +
         '<button class="btn btn-ghost-on-brand" id="btn-switch-year">Přepnout rok</button>' +
-        '<button class="btn btn-ghost-on-brand" id="btn-production-overview">' + icon("chart") + ' Přehled produkce</button>' +
+        renderNavSwitch("bonusy") +
         (READONLY ? '' :
           '<button class="icon-btn" id="btn-export-backup" title="Stáhnout zálohu bonusů (JSON)">' + icon("download") + '</button>' +
           '<button class="icon-btn" id="btn-import-backup" title="Načíst zálohu bonusů ze souboru">' + icon("upload") + '</button>' +
@@ -1368,10 +1423,11 @@ function renderTopbar(){
   } else if (state.screen === "production"){
     topbar.innerHTML =
       '<div class="left">' +
-        '<button class="backlink" id="btn-back-overview">' + icon("back") + ' ' + (state.productionFrom === "splash" ? 'Zpět na úvod' : 'Zpět na přehled bonusů') + '</button>' +
+        '<button class="backlink" id="btn-back-overview">' + icon("back") + ' Změnit rok</button>' +
       '</div>' +
       '<div class="actions">' +
-        '<div class="title" style="font-size:15px;">Přehled produkce ' + state.selectedYear + ' · ' + escapeHtml(currentDivision().label) + '</div>' +
+        renderNavSwitch("produkce") +
+        '<div class="title" style="font-size:15px;"><span class="title-dot" style="--h:' + currentDivision().hue + '"></span>Přehled produkce ' + state.selectedYear + ' · ' + escapeHtml(currentDivision().label) + '</div>' +
         '<button class="icon-btn" id="btn-theme" title="Přepnout motiv"></button>' +
       '</div>';
   } else {
@@ -1961,7 +2017,7 @@ function renderDivisionBar(){
   return '<nav class="div-bar" id="div-bar" aria-label="Divize zprostředkování">' +
     '<div class="div-bar-title">Divize</div>' +
     DIVISIONS.map(d =>
-      '<button data-division="' + d.key + '" class="' + (d.key === current.key ? "active" : "") + '" title="' + escapeHtml(d.label) + '"' +
+      '<button data-division="' + d.key + '" style="--h:' + d.hue + '" class="' + (d.key === current.key ? "active" : "") + '" title="' + escapeHtml(d.label) + '"' +
         (d.key === current.key ? ' aria-current="true"' : '') + '>' +
         icon(d.icon, 20) + '<span class="lbl">' + escapeHtml(d.label) + '</span>' +
       '</button>'
@@ -1997,22 +2053,35 @@ function renderProduction(){
   const pinnedValid = pinned && rows.some(r => r.producer === pinned);
   if (!pinnedValid) state.productionScreen.pinnedProducer = null;
 
-  const segmentFilterHtml = '<div class="segmented" id="prod-segment-filter">' +
-    division.segments.map(key => '<button data-segment="' + escapeHtml(key) + '" class="' + (segment===key?"active":"") + '">' + escapeHtml(key) + '</button>').join("") +
-    '</div>';
+  const children = division.children || {};
+  const childKeys = [].concat(...Object.values(children));
+  const tab = key => {
+    const isParentOfActive = (children[key] || []).includes(segment);
+    return '<button data-segment="' + escapeHtml(key) + '" style="--h:' + segmentHue(key) + '" class="seg-tab' +
+      (segment === key ? " active" : "") + (isParentOfActive ? " parent-active" : "") + '">' + escapeHtml(key) + '</button>';
+  };
+  const segmentFilterHtml = '<div class="seg-stack" id="prod-segment-filter">' +
+    '<div class="seg-tabs">' + division.segments.filter(k => !childKeys.includes(k)).map(tab).join("") + '</div>' +
+    Object.keys(children).map(parent =>
+      '<div class="seg-sub" style="--h:' + segmentHue(parent) + '">' +
+        '<span class="seg-sub-label">' + escapeHtml(parent) + ' – podsegmenty</span>' +
+        '<div class="seg-tabs">' + children[parent].map(tab).join("") + '</div>' +
+      '</div>'
+    ).join("") +
+  '</div>';
   const metricFilterHtml = '<div class="segmented" id="prod-metric-filter">' +
     '<button data-metric="objem" class="' + (metric==="objem"?"active":"") + '">Objem (Kč)</button>' +
     '<button data-metric="ks" class="' + (metric==="ks"?"active":"") + '">Počet (ks)</button>' +
     '</div>';
   const noteText = [division.note, SEGMENT_NOTES[segment]].filter(Boolean).join(" ");
   const noteHtml = noteText ? '<div class="prod-note">' + escapeHtml(noteText) + '</div>' : '';
-  const head = renderDivisionBar() + '<div class="prod-controls">' + segmentFilterHtml + metricFilterHtml + '</div>' + noteHtml;
+  const head = '<div class="prod-themed" style="--h:' + segmentHue(segment) + '">' + renderDivisionBar() + '<div class="prod-controls">' + segmentFilterHtml + metricFilterHtml + '</div>' + noteHtml;
 
   if (!rows.length){
     const failed = division.key !== "uvery" && state.divisionsError;
     return head + '<div class="empty-state"><p>' + (failed
       ? 'Data divize ' + escapeHtml(division.label) + ' se nepodařilo načíst: ' + escapeHtml(state.divisionsError) + ' Zkuste data aktualizovat v přehledu bonusů.'
-      : 'Pro tento segment a metriku nejsou ve zdrojových datech žádné řádky.') + '</p></div>';
+      : 'Pro tento segment a metriku nejsou ve zdrojových datech žádné řádky.') + '</p></div></div>';
   }
 
   return head +
@@ -2034,7 +2103,8 @@ function renderProduction(){
     '<div class="chart-card">' +
       '<h3 class="panel-title">Tabulka — ' + escapeHtml(segment) + '</h3>' +
       renderProductionTable(rows, metric) +
-    '</div>';
+    '</div>' +
+  '</div>';
 }
 
 /* ======================= EVENT HANDLERS ======================= */
@@ -2046,7 +2116,7 @@ function attachHandlers(){
     const switchYearBtn = document.getElementById("btn-switch-year");
     if (switchYearBtn) switchYearBtn.onclick = () => { state.screen = "splash"; render(); };
     const prodBtn = document.getElementById("btn-production-overview");
-    if (prodBtn) prodBtn.onclick = () => { state.productionFrom = "overview"; state.screen = "production"; render(); };
+    if (prodBtn) prodBtn.onclick = () => { state.screen = "production"; render(); };
     const refreshBtn = document.getElementById("btn-refresh");
     if (refreshBtn) refreshBtn.onclick = () => loadData(state.selectedYear, true);
     const exportBtn = document.getElementById("btn-export-backup");
@@ -2082,7 +2152,9 @@ function attachHandlers(){
 
   if (state.screen === "production"){
     const backBtn = document.getElementById("btn-back-overview");
-    if (backBtn) backBtn.onclick = () => { state.screen = state.productionFrom === "splash" ? "splash" : "overview"; render(); };
+    if (backBtn) backBtn.onclick = () => { state.screen = "splash"; render(); };
+    const bonusesBtn = document.getElementById("btn-bonuses-overview");
+    if (bonusesBtn) bonusesBtn.onclick = () => { state.screen = "overview"; render(); };
     const divBar = document.getElementById("div-bar");
     if (divBar){
       divBar.querySelectorAll("button").forEach(btn => {
@@ -2367,7 +2439,6 @@ function renderSplashPicker(){
   picker.querySelectorAll(".year-card").forEach(btn => {
     btn.addEventListener("click", () => {
       const year = parseInt(btn.getAttribute("data-year"), 10);
-      if (state.splashMode === "produkce") state.productionFrom = "splash";
       loadData(year, false, state.splashMode === "produkce" ? "production" : "overview");
     });
   });
