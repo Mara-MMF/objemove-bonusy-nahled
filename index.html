@@ -99,6 +99,21 @@
     perspective:700px; transition:transform .3s ease, box-shadow .3s ease;
   }
   .logo3d:hover{transform:rotateX(6deg) rotateY(-8deg); box-shadow:-10px 22px 44px rgba(0,0,0,.26);}
+  .logo3d{cursor:pointer; -webkit-tap-highlight-color:transparent;}
+  .logo3d:focus-visible{outline:2px solid var(--s3-brand); outline-offset:4px;}
+  /* Click = the lettering lights up like a neon sign (click again to switch it off). */
+  .logo3d.lit{
+    box-shadow:0 0 0 1px rgba(225,49,64,.25), 0 0 46px 6px rgba(255,60,80,.45), 0 18px 40px rgba(0,0,0,.20);
+    animation:logo-flicker .7s steps(1,end) 1;
+  }
+  .logo3d.lit img{
+    filter:
+      brightness(1.12) saturate(1.3)
+      drop-shadow(1px 1px 0 #b02232) drop-shadow(1px 1px 0 #a41f2e) drop-shadow(1px 1px 0 #981c2a)
+      drop-shadow(0 0 5px rgba(255,70,90,.95)) drop-shadow(0 0 14px rgba(255,50,75,.85)) drop-shadow(0 0 30px rgba(255,40,70,.7));
+  }
+  @keyframes logo-flicker{0%{opacity:.35} 12%{opacity:1} 22%{opacity:.5} 34%{opacity:1} 46%{opacity:.7} 60%,100%{opacity:1}}
+  @media (prefers-reduced-motion:reduce){ .logo3d.lit{animation:none;} }
   .logo3d img{
     width:min(280px, 56vw); height:auto; display:block;
     filter:
@@ -550,14 +565,14 @@
 <body>
 
   <div id="auth-gate" style="display:none;">
-    <div class="logo3d"><img src="assets/logo-mmf-text.png" alt="M&amp;M Finance"></div>
+    <div class="logo3d" role="button" tabindex="0" aria-pressed="false" title="Rozsvítit logo"><img src="assets/logo-mmf-text.png" alt="M&amp;M Finance"></div>
     <div class="hint">Tento náhled appky je dostupný pouze pro Google účty na doméně @mmfinance.cz nebo @mmreality.cz.</div>
     <div id="g_id_signin_container"></div>
     <div class="status" id="auth-gate-status"></div>
   </div>
 
   <div id="splash">
-    <div class="logo3d"><img src="assets/logo-mmf-text.png" alt="M&amp;M Finance"></div>
+    <div class="logo3d" role="button" tabindex="0" aria-pressed="false" title="Rozsvítit logo"><img src="assets/logo-mmf-text.png" alt="M&amp;M Finance"></div>
     <div class="splash-section">
       <div class="splash-label">Co chcete zobrazit?</div>
       <div class="mode-switch" id="mode-switch" role="tablist" aria-label="Co chcete zobrazit"></div>
@@ -2412,6 +2427,19 @@ async function loadData(year, fromOverview, target){
   }
 }
 
+/* ======================= LOGO LIGHT-UP ======================= */
+function wireLogoLightUp(){
+  document.querySelectorAll(".logo3d").forEach(el => {
+    const toggle = () => {
+      const lit = el.classList.toggle("lit");
+      el.setAttribute("aria-pressed", String(lit));
+      el.title = lit ? "Zhasnout logo" : "Rozsvítit logo";
+    };
+    el.addEventListener("click", toggle);
+    el.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " "){ e.preventDefault(); toggle(); } });
+  });
+}
+
 /* ======================= SPLASH PICKER ======================= */
 function renderSplashPicker(){
   const mode = SPLASH_MODES.find(m => m.key === state.splashMode) || SPLASH_MODES[0];
@@ -2517,6 +2545,7 @@ function init(){
     if (SPLASH_MODES.some(m => m.key === savedMode)) state.splashMode = savedMode;
   }catch(e){}
   renderSplashPicker();
+  wireLogoLightUp();
 
   render();
 }
