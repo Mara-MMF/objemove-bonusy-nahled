@@ -210,6 +210,43 @@
   }
   .prod-controls .segmented{flex-wrap:wrap;}
   .panel-title{font-size:14px; font-weight:700; color:var(--s3-text-primary); margin:0 0 16px;}
+  .prod-note{font-size:12px; color:var(--s3-text-muted); margin:-12px 0 20px; max-width:900px;}
+
+  /* Floating division switcher. The content column is main (1280px, 32px padding); on wide
+     screens the bar floats in the free margin to its left, compact (icons) on medium ones,
+     and becomes a plain row above the controls when there is no margin to float in. */
+  .div-bar{
+    position:static; display:flex; flex-wrap:wrap; align-items:center; gap:6px; margin-bottom:20px;
+    padding:8px; background:var(--s3-surface); border:1px solid var(--s3-border-default);
+    border-radius:14px; box-shadow:0 2px 10px rgba(0,0,0,.05); width:fit-content; max-width:100%;
+  }
+  .div-bar-title{
+    font-size:11px; font-weight:700; letter-spacing:.06em; text-transform:uppercase;
+    color:var(--s3-text-muted); padding:0 8px;
+  }
+  .div-bar button{
+    display:flex; align-items:center; gap:10px; padding:9px 14px; border:1px solid transparent;
+    border-radius:10px; background:transparent; color:var(--s3-text-primary);
+    font:inherit; font-size:14px; font-weight:600; cursor:pointer; text-align:left;
+  }
+  .div-bar button:hover{background:var(--s3-surface-brand);}
+  .div-bar button.active{background:var(--s3-brand); color:#fff; cursor:default;}
+  .div-bar button svg{flex-shrink:0;}
+  @media (min-width:1400px){
+    .div-bar{
+      position:fixed; z-index:15; top:112px; left:12px; width:64px; flex-direction:column;
+      align-items:stretch; flex-wrap:nowrap; margin:0; padding:8px 6px;
+    }
+    .div-bar-title{display:none;}
+    .div-bar button{flex-direction:column; gap:4px; padding:9px 2px; text-align:center;}
+    .div-bar button .lbl{font-size:10px; font-weight:600; line-height:1.1;}
+  }
+  @media (min-width:1640px){
+    .div-bar{left:calc(50vw - 804px); width:176px; padding:10px;}
+    .div-bar-title{display:block; padding:4px 8px 6px;}
+    .div-bar button{flex-direction:row; gap:10px; padding:10px 12px; text-align:left;}
+    .div-bar button .lbl{font-size:14px;}
+  }
 
   .prod-monthly-plot{
     display:flex; align-items:flex-end; gap:6px; height:220px; padding:0 4px;
@@ -508,6 +545,46 @@ const SEGMENTS = [
   { key: "Úvěry pro podnikatele", title: "úvěry pro podnikatele" },
 ];
 
+// Second source workbook: production for the non-loan divisions (pojištění, investice,
+// penze). One tab per year ("Produkce 2026" = Kč, "Počet smluv 2026" = ks), months as
+// plain columns, each segment a titled block (title in column A, then a note row, then a
+// "Producent" header row, producer rows, "Celkem").
+const DIVISIONS_SHEET_ID = "1V1HD9ykRJFjpfp8zWSZACC0LA1rrF3swpKW26Z6bPWE";
+const DIVISIONS_EXPORT_URL = "https://docs.google.com/spreadsheets/d/" + DIVISIONS_SHEET_ID + "/export?format=xlsx";
+
+// Divisions selectable on the "Přehled produkce" screen's floating bar. `segments` are the
+// segment keys offered in that division (keys into state.volumes / state.volumesKs).
+const DIVISIONS = [
+  { key: "uvery", label: "Úvěry", icon: "loans", dealLabel: "Ø výše úvěru",
+    segments: SEGMENTS.map(s => s.key), note: "" },
+  { key: "pojisteni", label: "Pojištění", icon: "shield", dealLabel: "Ø pojistné na smlouvu",
+    segments: ["Životní pojištění", "Neživotní pojištění", "Neživotní – Auta", "Neživotní – Majetek a odpovědnost",
+               "Neživotní – Pojištění podnikatelů", "Neživotní – Cestovní pojištění"],
+    note: "Pojistné: jednorázové, pokud je zadáno, jinak roční. Segment „Neživotní pojištění“ zahrnuje všechny čtyři neživotní podsegmenty." },
+  { key: "investice", label: "Investice", icon: "trend", dealLabel: "Ø výše investice na smlouvu",
+    segments: ["Pravidelná investice", "Jednorázový vklad", "Investice celkem"],
+    note: "Pravidelná investice = roční platba, jednorázový vklad = jednorázová platba; sledovány samostatně." },
+  { key: "penze", label: "Penze", icon: "hourglass", dealLabel: "Ø platba na smlouvu",
+    segments: ["Penze"], note: "Roční platba; pokud je nulová/prázdná, pak jednorázová." },
+];
+const SEGMENT_NOTES = {
+  "Investice celkem": "Součet pravidelné investice (roční platba) a jednorázového vkladu; počet ks = skutečný počet unikátních smluv (každá smlouva jen jednou, i když má oba typy vkladu).",
+};
+
+// Section titles of the divisions workbook (normalized: lowercase, single spaces, one dash
+// kind) -> segment key. "Investice" is split by its "Typ investice" column instead.
+const DIVISION_SECTIONS = [
+  { title: "životní pojištění", key: "Životní pojištění" },
+  { title: "neživotní pojištění", key: "Neživotní pojištění" },
+  { title: "neživotní pojištění - auta", key: "Neživotní – Auta" },
+  { title: "neživotní pojištění - majetek a odpovědnost (včetně jiného neživotního)", key: "Neživotní – Majetek a odpovědnost" },
+  { title: "neživotní pojištění - pojištění podnikatelů", key: "Neživotní – Pojištění podnikatelů" },
+  { title: "neživotní pojištění - cestovní pojištění", key: "Neživotní – Cestovní pojištění" },
+  { title: "investice", byType: true },
+  { title: "investice - skutečný počet unikátních smluv", key: "Investice celkem" },
+  { title: "penze", key: "Penze" },
+];
+
 // Producer name -> logo asset file. Keyed on the exact producerName used by seeded/added
 // bonuses; producers without a known file simply render without a logo badge.
 const PRODUCER_LOGOS = {
@@ -786,6 +863,10 @@ function icon(name, size){
     download: '<path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 21h16"/>',
     upload: '<path d="M12 21V9"/><path d="M7 14l5-5 5 5"/><path d="M4 3h16"/>',
     chart: '<rect x="3" y="3" width="18" height="18" rx="3"/><path d="M8 16v-4M12 16V8M16 16v-7"/>',
+    loans: '<rect x="2.5" y="6" width="19" height="12" rx="2"/><circle cx="12" cy="12" r="2.6"/><path d="M6 9.5v.01M18 14.5v.01"/>',
+    shield: '<path d="M12 3l7.5 3v5.5c0 4.6-3.1 8-7.5 9.5-4.4-1.5-7.5-4.9-7.5-9.5V6L12 3z"/><path d="M8.8 12l2.2 2.2 4.2-4.4"/>',
+    trend: '<path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/>',
+    hourglass: '<path d="M6 2h12M6 22h12"/><path d="M7 2v4c0 2.5 5 4 5 6s-5 3.5-5 6v4"/><path d="M17 2v4c0 2.5-5 4-5 6s5 3.5 5 6v4"/>',
   };
   const s = size || 16;
   return '<svg width="' + s + '" height="' + s + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' + (paths[name]||"") + '</svg>';
@@ -805,7 +886,8 @@ const state = {
   availableProducers: {}, // segmentKey -> [labels]
   availableProducersKs: {},
   fetchedAt: null,
-  productionScreen: { segment: null, metric: "objem", pinnedProducer: null }, // "Přehled produkce" screen state
+  productionScreen: { division: "uvery", segment: null, metric: "objem", pinnedProducer: null }, // "Přehled produkce" screen state
+  divisionsError: null,   // why the pojištění/investice/penze data could not be loaded (null = loaded fine)
   editingId: null,        // bonus id being edited, or "new"
   draft: null,            // working copy of the bonus being edited
 };
@@ -941,6 +1023,122 @@ function parseGrid(grid, targetYear){
   });
 
   return { volumes, availableProducers };
+}
+
+// Parser for one tab of the divisions workbook ("Produkce <rok>" or "Počet smluv <rok>").
+// Same result shape as parseGrid() — volumes["<segmentKey>|<producer>"] = { year, months[12] }
+// — so the production screen's rows/averages/charts work on it unchanged.
+function normalizeDivTitle(s){
+  if (typeof s !== "string") return "";
+  // Unlike normalizeTitle(), keep a trailing "(...)": one segment title ends with
+  // "(včetně jiného neživotního)" and is part of what identifies it.
+  return s.replace(/[‐-―−]/g, "-").replace(/\s+/g, " ").trim().toLowerCase();
+}
+function parseDivisionGrid(grid, targetYear){
+  const volumes = {};
+  const availableProducers = {};
+  const addRow = (segKey, producer, months) => {
+    volumes[segKey + "|" + producer] = { year: targetYear, months };
+    (availableProducers[segKey] = availableProducers[segKey] || []).push(producer);
+  };
+  const sectionByTitle = {};
+  DIVISION_SECTIONS.forEach(sec => { sectionByTitle[sec.title] = sec; });
+
+  for (let r = 0; r < grid.length; r++){
+    const row = grid[r] || [];
+    const section = sectionByTitle[normalizeDivTitle(row[0])];
+    if (!section) continue;
+    // A real title row has nothing else on it. (The summary block at the top of each
+    // tab lists "Životní pojištění"/"Neživotní pojištění" too, but as data rows.)
+    if (!row.slice(1).every(v => v == null || v === "")) continue;
+
+    let h = -1;
+    for (let k = r + 1; k <= r + 3 && k < grid.length; k++){
+      if (normalizeLabel(grid[k] && grid[k][0]).toLowerCase() === "producent"){ h = k; break; }
+    }
+    if (h < 0) continue;
+
+    const monthCols = new Array(12).fill(-1);
+    let typeCol = -1;
+    (grid[h] || []).forEach((cell, c) => {
+      const t = normalizeLabel(cell).toLowerCase();
+      const mi = MONTH_NAMES.indexOf(t);
+      if (mi >= 0) monthCols[mi] = c;
+      else if (t === "typ investice") typeCol = c;
+    });
+    if (monthCols.some(c => c < 0)) continue;
+
+    for (let rr = h + 1; rr < grid.length; rr++){
+      const line = grid[rr] || [];
+      const label = normalizeLabel(line[0]);
+      if (!label || /^celkem/i.test(label)) break;
+      const months = monthCols.map(c => typeof line[c] === "number" ? line[c] : null);
+      let segKey = section.key;
+      if (section.byType){
+        const t = normalizeLabel(line[typeCol]).toLowerCase();
+        segKey = t.startsWith("pravidelná") ? "Pravidelná investice"
+          : t.startsWith("jednorázový") ? "Jednorázový vklad" : null;
+      }
+      if (segKey) addRow(segKey, label, months);
+    }
+  }
+
+  // The sheet pre-fills the not-yet-reported months with 0 (the loans sheet leaves them
+  // empty). Months after the last one with any activity anywhere on the tab are "no data
+  // yet" — null, like the loans data — so per-month averages aren't diluted by them.
+  let lastActive = -1;
+  Object.keys(volumes).forEach(k => volumes[k].months.forEach((v, i) => { if (v && i > lastActive) lastActive = i; }));
+  if (lastActive >= 0){
+    Object.keys(volumes).forEach(k => { for (let i = lastActive + 1; i < 12; i++) volumes[k].months[i] = null; });
+  }
+
+  // "Investice celkem": the counts tab carries its own section (unique contracts, so a
+  // contract with both deposit types isn't counted twice); on the volume tab it's the sum
+  // of the two types, matching that section's own "Celkem" row.
+  if (!availableProducers["Investice celkem"]){
+    const sum = {};
+    ["Pravidelná investice", "Jednorázový vklad"].forEach(seg => {
+      (availableProducers[seg] || []).forEach(p => {
+        const acc = sum[p] = sum[p] || new Array(12).fill(null);
+        volumes[seg + "|" + p].months.forEach((v, i) => { if (v != null) acc[i] = (acc[i] || 0) + v; });
+      });
+    });
+    Object.keys(sum).forEach(p => addRow("Investice celkem", p, sum[p]));
+  }
+
+  return { volumes, availableProducers };
+}
+
+// Never throws: the pojištění/investice/penze data is an add-on to the core bonus data,
+// so a failure here must not block loading bonuses — it just leaves those divisions
+// empty and puts the reason in `error` for the production screen to show.
+async function fetchDivisionData(targetYear){
+  const empty = { volumes: {}, availableProducers: {}, volumesKs: {}, availableProducersKs: {} };
+  try{
+    let objemGrid = null, ksGrid = null;
+    if (window.__FIRESTORE_GRIDS__){
+      const d = (window.__FIRESTORE_GRIDS__.divisions || {})[String(targetYear)] || {};
+      objemGrid = d.objem || null;
+      ksGrid = d.ks || null;
+      if (!objemGrid) throw new Error("Data divizí pojištění, investic a penzí za rok " + targetYear + " zatím nejsou v databázi (synchronizace běží automaticky cca každých 30 minut).");
+    } else {
+      const resp = await fetch(DIVISIONS_EXPORT_URL, { cache: "no-store" });
+      if (!resp.ok) throw new Error("Nepodařilo se stáhnout data divizí pojištění, investic a penzí (HTTP " + resp.status + ").");
+      const wb = XLSX.read(await resp.arrayBuffer(), { type: "array" });
+      const objemName = findSheetName(wb, "Produkce " + targetYear);
+      if (!objemName) throw new Error('V souboru divizí chybí list "Produkce ' + targetYear + '".');
+      objemGrid = gridForSheet(wb, objemName);
+      const ksName = findSheetName(wb, "Počet smluv " + targetYear);
+      ksGrid = ksName ? gridForSheet(wb, ksName) : null;
+    }
+    const o = parseDivisionGrid(objemGrid, targetYear);
+    const k = ksGrid ? parseDivisionGrid(ksGrid, targetYear) : { volumes: {}, availableProducers: {} };
+    return { volumes: o.volumes, availableProducers: o.availableProducers,
+             volumesKs: k.volumes, availableProducersKs: k.availableProducers, error: null };
+  }catch(err){
+    console.warn("Data divizí se nepodařilo načíst:", err);
+    return Object.assign(empty, { error: err.message || String(err) });
+  }
 }
 
 /* ======================= CALCULATIONS ======================= */
@@ -1105,7 +1303,7 @@ function renderTopbar(){
         '<button class="backlink" id="btn-back-overview">' + icon("back") + ' Zpět na přehled bonusů</button>' +
       '</div>' +
       '<div class="actions">' +
-        '<div class="title" style="font-size:15px;">Přehled produkce ' + state.selectedYear + '</div>' +
+        '<div class="title" style="font-size:15px;">Přehled produkce ' + state.selectedYear + ' · ' + escapeHtml(currentDivision().label) + '</div>' +
         '<button class="icon-btn" id="btn-theme" title="Přepnout motiv"></button>' +
       '</div>';
   } else {
@@ -1501,6 +1699,13 @@ function formatCount(n){
   if (n == null || isNaN(n)) return "—";
   return Math.round(n).toLocaleString("cs-CZ");
 }
+// Average monthly contract count: below 1 a rounded integer would read "0 ks" for a
+// producer that does have contracts (small insurers/pension companies), so show a decimal.
+function formatAvgCount(n){
+  if (n == null || isNaN(n)) return "—";
+  if (n > 0 && n < 1) return n.toLocaleString("cs-CZ", { maximumFractionDigits: 1, minimumFractionDigits: 1 });
+  return formatCount(n);
+}
 function formatByMetric(n, metric){
   return metric === "ks" ? formatCount(n) + " ks" : formatKc(n);
 }
@@ -1657,48 +1862,92 @@ function getSegmentAverages(segment){
 
 function renderSegmentAveragesCard(segment){
   const rows = getSegmentAverages(segment);
+  const dealLabel = currentDivision().dealLabel;
   if (!rows.length) return "";
   const body = rows.map(r => (
     '<tr>' +
       '<td>' + escapeHtml(r.producer) + '</td>' +
       '<td>' + (r.avgObjem != null ? formatKc(r.avgObjem) : "—") + '</td>' +
-      '<td>' + (r.avgKs != null ? formatCount(r.avgKs) + ' ks' : "—") + '</td>' +
+      '<td>' + (r.avgKs != null ? formatAvgCount(r.avgKs) + ' ks' : "—") + '</td>' +
       '<td>' + (r.avgDeal != null ? formatKc(r.avgDeal) : "—") + '</td>' +
     '</tr>'
   )).join("");
   return '<div class="chart-card prod-avg-card" style="margin-bottom:24px;">' +
     '<h3 class="panel-title">Průměry na producenta — ' + escapeHtml(segment) + '</h3>' +
     '<div class="prod-avg-table-wrap"><table class="prod-avg-table">' +
-      '<thead><tr><th>Producent</th><th>Ø měsíční objem</th><th>Ø měsíční počet ks</th><th>Ø výše úvěru</th></tr></thead>' +
+      '<thead><tr><th>Producent</th><th>Ø měsíční objem</th><th>Ø měsíční počet ks</th><th>' + escapeHtml(dealLabel) + '</th></tr></thead>' +
       '<tbody>' + body + '</tbody>' +
     '</table></div>' +
   '</div>';
 }
 
+function currentDivision(){
+  return DIVISIONS.find(d => d.key === state.productionScreen.division) || DIVISIONS[0];
+}
+
+// Floating switcher between the divisions (úvěry / pojištění / investice / penze).
+// Fixed in the free margin left of the content column on wide screens, a plain row
+// above the controls on narrow ones (see .div-bar in the CSS).
+function renderDivisionBar(){
+  const current = currentDivision();
+  return '<nav class="div-bar" id="div-bar" aria-label="Divize zprostředkování">' +
+    '<div class="div-bar-title">Divize</div>' +
+    DIVISIONS.map(d =>
+      '<button data-division="' + d.key + '" class="' + (d.key === current.key ? "active" : "") + '" title="' + escapeHtml(d.label) + '"' +
+        (d.key === current.key ? ' aria-current="true"' : '') + '>' +
+        icon(d.icon, 20) + '<span class="lbl">' + escapeHtml(d.label) + '</span>' +
+      '</button>'
+    ).join("") +
+  '</nav>';
+}
+
+// Producer colors for a segment. Up to 8 producers keep the stable alphabetical
+// assignment used for loans; a segment with more (e.g. insurers) hands the 8 hues to the
+// biggest producers by volume instead — alphabetical order there would regularly leave
+// a top producer in the shared grey "other" bucket.
+function productionColorMap(segment, rows){
+  const names = rows.map(r => r.producer);
+  if (names.length <= 8) return assignProducerColors(names);
+  const byVolume = getProductionRows(segment, "objem").map(r => r.producer).filter(p => names.includes(p));
+  const rest = names.filter(p => !byVolume.includes(p)).sort((a,b) => a.localeCompare(b, "cs"));
+  const ordered = byVolume.concat(rest);
+  const map = {};
+  ordered.forEach((p, i) => { map[p] = i < 8 ? ("var(--chart-series-" + (i+1) + ")") : "var(--chart-series-other)"; });
+  return map;
+}
+
 function renderProduction(){
-  if (!state.productionScreen.segment) state.productionScreen.segment = SEGMENTS[0].key;
+  const division = currentDivision();
+  if (!state.productionScreen.segment || !division.segments.includes(state.productionScreen.segment)){
+    state.productionScreen.segment = division.segments[0];
+  }
   const segment = state.productionScreen.segment;
   const metric = state.productionScreen.metric;
   const rows = getProductionRows(segment, metric); // already excludes all-zero producers
-  const colorMap = assignProducerColors(rows.map(r => r.producer));
+  const colorMap = productionColorMap(segment, rows);
   const pinned = state.productionScreen.pinnedProducer;
   const pinnedValid = pinned && rows.some(r => r.producer === pinned);
   if (!pinnedValid) state.productionScreen.pinnedProducer = null;
 
   const segmentFilterHtml = '<div class="segmented" id="prod-segment-filter">' +
-    SEGMENTS.map(s => '<button data-segment="' + escapeHtml(s.key) + '" class="' + (segment===s.key?"active":"") + '">' + escapeHtml(s.key) + '</button>').join("") +
+    division.segments.map(key => '<button data-segment="' + escapeHtml(key) + '" class="' + (segment===key?"active":"") + '">' + escapeHtml(key) + '</button>').join("") +
     '</div>';
   const metricFilterHtml = '<div class="segmented" id="prod-metric-filter">' +
     '<button data-metric="objem" class="' + (metric==="objem"?"active":"") + '">Objem (Kč)</button>' +
     '<button data-metric="ks" class="' + (metric==="ks"?"active":"") + '">Počet (ks)</button>' +
     '</div>';
+  const noteText = [division.note, SEGMENT_NOTES[segment]].filter(Boolean).join(" ");
+  const noteHtml = noteText ? '<div class="prod-note">' + escapeHtml(noteText) + '</div>' : '';
+  const head = renderDivisionBar() + '<div class="prod-controls">' + segmentFilterHtml + metricFilterHtml + '</div>' + noteHtml;
 
   if (!rows.length){
-    return '<div class="prod-controls">' + segmentFilterHtml + metricFilterHtml + '</div>' +
-      '<div class="empty-state"><p>Pro tento segment a metriku nejsou ve zdrojových datech žádné řádky.</p></div>';
+    const failed = division.key !== "uvery" && state.divisionsError;
+    return head + '<div class="empty-state"><p>' + (failed
+      ? 'Data divize ' + escapeHtml(division.label) + ' se nepodařilo načíst: ' + escapeHtml(state.divisionsError) + ' Zkuste data aktualizovat v přehledu bonusů.'
+      : 'Pro tento segment a metriku nejsou ve zdrojových datech žádné řádky.') + '</p></div>';
   }
 
-  return '<div class="prod-controls">' + segmentFilterHtml + metricFilterHtml + '</div>' +
+  return head +
     renderSegmentAveragesCard(segment) +
     '<div class="chart-card" id="prod-monthly-card" style="margin-bottom:24px;">' +
       '<h3 class="panel-title">Vývoj produkce podle měsíců — ' + escapeHtml(segment) +
@@ -1766,6 +2015,19 @@ function attachHandlers(){
   if (state.screen === "production"){
     const backBtn = document.getElementById("btn-back-overview");
     if (backBtn) backBtn.onclick = () => { state.screen = "overview"; render(); };
+    const divBar = document.getElementById("div-bar");
+    if (divBar){
+      divBar.querySelectorAll("button").forEach(btn => {
+        btn.onclick = () => {
+          const key = btn.getAttribute("data-division");
+          if (key === state.productionScreen.division) return;
+          state.productionScreen.division = key;
+          state.productionScreen.segment = null; // render() falls back to the division's first segment
+          state.productionScreen.pinnedProducer = null;
+          render();
+        };
+      });
+    }
     const segFilter = document.getElementById("prod-segment-filter");
     if (segFilter){
       segFilter.querySelectorAll("button").forEach(btn => {
@@ -1985,11 +2247,12 @@ async function loadData(year, fromOverview){
     statusEl.innerHTML = '<span class="spinner"></span> Načítám data za rok ' + targetYear + '…';
   }
   try{
-    const { volumes, availableProducers, volumesKs, availableProducersKs } = await fetchAndParseSheet(targetYear);
-    state.volumes = volumes;
-    state.availableProducers = availableProducers;
-    state.volumesKs = volumesKs;
-    state.availableProducersKs = availableProducersKs;
+    const [loans, divs] = await Promise.all([fetchAndParseSheet(targetYear), fetchDivisionData(targetYear)]);
+    state.volumes = Object.assign({}, loans.volumes, divs.volumes);
+    state.availableProducers = Object.assign({}, loans.availableProducers, divs.availableProducers);
+    state.volumesKs = Object.assign({}, loans.volumesKs, divs.volumesKs);
+    state.availableProducersKs = Object.assign({}, loans.availableProducersKs, divs.availableProducersKs);
+    state.divisionsError = divs.error;
     state.selectedYear = targetYear;
     state.fetchedAt = Date.now();
     saveCacheToStorage();
@@ -2278,10 +2541,28 @@ async function firebaseLoadAndEnter(user){
       db.collection("production").doc("ks").get(),
     ]);
     if (!bonusesDoc.exists) throw new Error("Konfigurace bonusů nebyla nalezena v databázi.");
+
+    // Pojištění / investice / penze: one pair of docs (Kč + ks) per year, written by the
+    // same sync job. A missing doc just leaves that year's divisions empty (the production
+    // screen explains why) — it must not block access to the rest.
+    const divDocs = await Promise.all(AVAILABLE_YEARS.flatMap(y => [
+      db.collection("production").doc("div_objem_" + y).get(),
+      db.collection("production").doc("div_ks_" + y).get(),
+    ]));
+    const divisions = {};
+    AVAILABLE_YEARS.forEach((y, i) => {
+      const o = divDocs[i * 2], k = divDocs[i * 2 + 1];
+      divisions[String(y)] = {
+        objem: o.exists ? JSON.parse(o.data().json) : null,
+        ks: k.exists ? JSON.parse(k.data().json) : null,
+      };
+    });
+
     window.__PUBLIC_BONUSES__ = JSON.parse(bonusesDoc.data().json);
     window.__FIRESTORE_GRIDS__ = {
       objem: objemDoc.exists ? JSON.parse(objemDoc.data().json) : null,
       ks: ksDoc.exists ? JSON.parse(ksDoc.data().json) : null,
+      divisions,
     };
     document.getElementById("auth-gate").style.display = "none";
     init();
