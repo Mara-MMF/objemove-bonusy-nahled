@@ -319,6 +319,8 @@
   }
   .year-switch button:hover{background:rgba(255,255,255,.18); opacity:1;}
   .year-switch button.active{background:#fff; color:var(--s3-brand); opacity:1; cursor:default;}
+  #btn-refresh.busy svg{animation:spin .8s linear infinite;}
+  #btn-refresh:disabled{opacity:.7; cursor:progress;}
   .year-switch.busy{opacity:.6; pointer-events:none;}
   .year-switch.busy::after{content:""; width:12px; height:12px; margin:0 8px 0 4px; border-radius:50%; border:2px solid rgba(255,255,255,.4); border-top-color:#fff; animation:spin .7s linear infinite;}
   .nav-switch{display:inline-flex; gap:3px; padding:3px; border-radius:999px; background:rgba(255,255,255,.12); border:1px solid rgba(255,255,255,.3);}
@@ -1473,10 +1475,12 @@ function renderTopbar(){
     topbar.innerHTML =
       '<div class="left">' +
         '<button class="backlink" id="btn-home" title="Zpět na úvodní obrazovku">' + icon("back") + ' Úvod</button>' +
+        '<div class="meta">Data aktualizována: ' + formatDateTime(state.fetchedAt) + '</div>' +
       '</div>' +
       '<div class="actions">' +
         renderNavSwitch("produkce") +
         renderYearSwitch() +
+        '<button class="btn btn-ghost-on-brand" id="btn-refresh">' + icon("refresh") + ' Aktualizovat data</button>' +
         '<div class="title" style="font-size:15px;"><span class="title-dot" style="--h:' + currentDivision().hue + '"></span>Přehled produkce ' + state.selectedYear + ' · ' + escapeHtml(currentDivision().label) + '</div>' +
         '<button class="icon-btn" id="btn-theme" title="Přepnout motiv"></button>' +
       '</div>';
@@ -2162,6 +2166,12 @@ function attachHandlers(){
   const themeBtn = document.getElementById("btn-theme");
   if (themeBtn) themeBtn.onclick = toggleTheme;
 
+  const refreshBtn = document.getElementById("btn-refresh");
+  if (refreshBtn) refreshBtn.onclick = () => {
+    if (state.loading) return;
+    refreshBtn.disabled = true; refreshBtn.classList.add("busy");
+    loadData(state.selectedYear, true, state.screen);
+  };
   const homeBtn = document.getElementById("btn-home");
   if (homeBtn) homeBtn.onclick = () => { state.screen = "splash"; render(); };
   document.querySelectorAll(".year-switch button[data-year]").forEach(btn => {
@@ -2176,8 +2186,6 @@ function attachHandlers(){
   if (state.screen === "overview"){
     const prodBtn = document.getElementById("btn-production-overview");
     if (prodBtn) prodBtn.onclick = () => { state.screen = "production"; render(); };
-    const refreshBtn = document.getElementById("btn-refresh");
-    if (refreshBtn) refreshBtn.onclick = () => loadData(state.selectedYear, true);
     const exportBtn = document.getElementById("btn-export-backup");
     if (exportBtn) exportBtn.onclick = exportBonusesBackup;
     const importBtn = document.getElementById("btn-import-backup");
@@ -2471,6 +2479,8 @@ async function loadData(year, fromOverview, target, holdUntil){
     // The clicked splash tile only stays lit while its data loads.
     document.querySelectorAll(".year-card.flash").forEach(el => el.classList.remove("flash"));
     document.querySelectorAll(".year-switch.busy").forEach(el => el.classList.remove("busy"));
+    const rb = document.getElementById("btn-refresh");
+    if (rb){ rb.disabled = false; rb.classList.remove("busy"); }
   }
 }
 
