@@ -323,6 +323,8 @@
   #btn-refresh:disabled{opacity:.7; cursor:progress;}
   .year-switch.busy{opacity:.6; pointer-events:none;}
   .year-switch.busy::after{content:""; width:12px; height:12px; margin:0 8px 0 4px; border-radius:50%; border:2px solid rgba(255,255,255,.4); border-top-color:#fff; animation:spin .7s linear infinite;}
+  header.topbar .actions > *{white-space:nowrap; flex-shrink:0;}
+  header.topbar .left > div{min-width:0;}
   .nav-switch{display:inline-flex; gap:3px; padding:3px; border-radius:999px; background:rgba(255,255,255,.12); border:1px solid rgba(255,255,255,.3);}
   .nav-switch button{
     display:inline-flex; align-items:center; gap:6px; border:0; border-radius:999px; padding:7px 14px; cursor:pointer;
@@ -1478,13 +1480,15 @@ function renderTopbar(){
     topbar.innerHTML =
       '<div class="left">' +
         '<button class="backlink" id="btn-home" title="Zpět na úvodní obrazovku">' + icon("back") + ' Úvod</button>' +
-        '<div class="meta">Data aktualizována: ' + formatDateTime(state.fetchedAt) + '</div>' +
+        '<div>' +
+          '<div class="title"><span class="title-dot" style="--h:' + currentDivision().hue + '"></span>Přehled produkce ' + state.selectedYear + ' · ' + escapeHtml(currentDivision().label) + '</div>' +
+          '<div class="meta">Data aktualizována: ' + formatDateTime(state.fetchedAt) + '</div>' +
+        '</div>' +
       '</div>' +
       '<div class="actions">' +
         renderNavSwitch("produkce") +
         renderYearSwitch() +
         '<button class="btn btn-ghost-on-brand" id="btn-refresh">' + icon("refresh") + ' Aktualizovat data</button>' +
-        '<div class="title" style="font-size:15px;"><span class="title-dot" style="--h:' + currentDivision().hue + '"></span>Přehled produkce ' + state.selectedYear + ' · ' + escapeHtml(currentDivision().label) + '</div>' +
         '<button class="icon-btn" id="btn-theme" title="Přepnout motiv"></button>' +
       '</div>';
   } else {
