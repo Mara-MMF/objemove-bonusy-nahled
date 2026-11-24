@@ -429,6 +429,9 @@
   table.prod-table tbody tr{border-bottom:1px solid var(--s3-border-default);}
   table.prod-table tbody tr:hover{background:var(--s3-surface-muted);}
   table.prod-table tbody tr:hover td:first-child{background:var(--s3-surface-muted);}
+  table.prod-table tfoot tr.prod-grand-row{background:var(--s3-surface-muted); border-top:2px solid var(--s3-border-default);}
+  table.prod-table tfoot td{font-weight:700; color:var(--s3-text-primary); padding-top:11px; padding-bottom:11px;}
+  table.prod-table tfoot td:first-child{background:var(--s3-surface-muted);}
   table.prod-table td.prod-total, table.prod-table th.prod-total{font-weight:700; color:var(--s3-text-primary);}
 
   /* Compact "just informational" card — smaller type/padding than the main table */
@@ -2003,9 +2006,16 @@ function renderProductionTable(rows, metric){
       '<td class="prod-total">' + formatByMetric(r.total, metric) + '</td>' +
       '<td class="prod-total">' + pct.toFixed(1).replace(".", ",") + ' %</td></tr>';
   }).join("");
+  // Totals row: per-month sum over all producers (— where nobody reported), then the grand total.
+  const monthTotals = MONTH_NAMES_SHORT.map((_, i) => rows.reduce((s,r) => s + (r.months[i] || 0), 0));
+  const footCells = monthTotals.map(v => '<td>' + (v ? formatByMetric(v, metric) : "—") + '</td>').join("");
+  const footRow = '<tr class="prod-grand-row"><td>Celkem za všechny producenty</td>' + footCells +
+    '<td class="prod-total">' + formatByMetric(grand, metric) + '</td>' +
+    '<td class="prod-total">' + (grand > 0 ? "100,0 %" : "—") + '</td></tr>';
   return '<div class="prod-table-wrap"><table class="prod-table">' +
     '<thead><tr><th>Producent</th>' + headCells + '<th class="prod-total">Celkem</th><th class="prod-total">Podíl</th></tr></thead>' +
     '<tbody>' + bodyRows + '</tbody>' +
+    '<tfoot>' + footRow + '</tfoot>' +
   '</table></div>';
 }
 
@@ -2155,7 +2165,7 @@ function renderProduction(){
       renderDonutChart(rows, colorMap, metric, pinned) +
     '</div>' +
     '<div class="chart-card">' +
-      '<h3 class="panel-title">Tabulka — ' + escapeHtml(segment) + '</h3>' +
+      '<h3 class="panel-title">' + escapeHtml(segment) + '</h3>' +
       renderProductionTable(rows, metric) +
     '</div>' +
   '</div>';
